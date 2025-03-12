@@ -1,25 +1,23 @@
-import bcrypt
-from pymongo import MongoClient
+import pymongo
 
-# Step 1: Connect to MongoDB
-client = MongoClient("mongodb://127.0.0.1:27017/")  # Connect to your local MongoDB server
-db = client["myDatabase"]  # Select the database
-collection = db["myCollection"]  # Select the collection
+# Connect to MongoDB
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client["user_db"]  # Database
+users_collection = db["users"]  # Collection
 
-# Step 2: Define the username and password (for example, "JohnDoe" and "mySecurePassword123")
-username = "JohnDoe"
-password = "mySecurePassword123"  # The password entered by the user
+# Define 3 users with usernames and passwords
+users = [
+    {"username": "admin", "password": "admin123"},
+    {"username": "user1", "password": "pass123"},
+    {"username": "user2", "password": "mypassword"}
+]
 
-# Step 3: Hash the password using bcrypt
-hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+# Insert users into the database if they don’t exist already
+for user in users:
+    if not users_collection.find_one({"username": user["username"]}):
+        users_collection.insert_one(user)
+        print(f"User '{user['username']}' added to the database.")
+    else:
+        print(f"User '{user['username']}' already exists.")
 
-# Step 4: Create a dictionary to insert into MongoDB
-user_data = {
-    "username": username,
-    "password": hashed_password  # Store the hashed password
-}
-
-# Step 5: Insert the user data into MongoDB
-collection.insert_one(user_data)
-
-print("User saved successfully.")
+print("User data setup completed!")

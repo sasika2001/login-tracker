@@ -1,65 +1,96 @@
-import tkinter as tk
+from tkinter import *
 from tkinter import messagebox
-import bcrypt
-from pymongo import MongoClient
+from tkinter import ttk
+import pymongo
+from datetime import datetime
+import socket
 
-# Step 1: Connect to MongoDB
-client = MongoClient("mongodb://127.0.0.1:27017/")  # Connect to your local MongoDB server
-db = client["myDatabase"]  # Select the database
-collection = db["myCollection"]  # Select the collection
+class Login:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Login System")
+        self.root.geometry("400x300")
+        self.root.resizable(False, False)
+        self.root.configure(bg="#f4f4f4")  # Light grey background
 
-# Step 2: Define the function to handle login
-def login():
-    # Get entered username and password from the GUI input fields
-    entered_username = entry_username.get()
-    entered_password = entry_password.get()
+        # MongoDB Setup for user credentials
+        self.client = pymongo.MongoClient("mongodb://localhost:27017/")
+        self.user_db = self.client["user_db"]  # Database for storing usernames and passwords
+        self.users_collection = self.user_db["users"]  # Collection for user credentials
+        
+        # MongoDB Setup for login history
+        self.login_db = self.client["login_db"]  # Database for login details
+        self.login_history_collection = self.login_db["login_history"]  # Collection for login history
+        
+        self.create_widgets()
 
-    # Step 3: Fetch the stored user data from MongoDB
-    user_data = collection.find_one({"username": entered_username})
+    def create_widgets(self):
+        # Title Label
+        self.title_label = Label(self.root, text="User Login", font=("Arial", 16, "bold"), bg="#f4f4f4")
+        self.title_label.pack(pady=10)
 
-    if user_data:
-        # Step 4: Get the stored hashed password from MongoDB
-        stored_hashed_password = user_data["password"]
+        # Create Frame for Inputs
+        frame = Frame(self.root, bg="white", padx=20, pady=20, relief=RIDGE, borderwidth=2)
+        frame.pack(pady=20)
 
-        # Step 5: Check if the entered password matches the stored hashed password
-        if bcrypt.checkpw(entered_password.encode('utf-8'), stored_hashed_password):
-            messagebox.showinfo("Login Status", "Login successful!")
+        # Username Label & Entry
+        Label(frame, text="Username", font=("Arial", 12), bg="white").grid(row=0, column=0, pady=5, sticky=W)
+        self.username_entry = ttk.Entry(frame, width=25, font=("Arial", 10))
+        self.username_entry.grid(row=0, column=1, pady=5, padx=10)
+
+        # Password Label & Entry
+        Label(frame, text="Password", font=("Arial", 12), bg="white").grid(row=1, column=0, pady=5, sticky=W)
+        self.password_entry = ttk.Entry(frame, width=25, font=("Arial", 10), show="*")
+        self.password_entry.grid(row=1, column=1, pady=5, padx=10)
+
+        # Login Button
+        self.login_button = ttk.Button(self.root, text="Login", command=self.login_action)
+        self.login_button.pack(pady=10)
+
+    def login_action(self):
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+
+        # Validation for empty fields
+        if not username and not password:
+            messagebox.showerror("Input Error", "Username and Password cannot be empty!")
+            return
+        elif not username:
+            messagebox.showerror("Input Error", "Please enter your Username!")
+            return
+        elif not password:
+            messagebox.showerror("Input Error", "Please enter your Password!")
+            return
+
+        # Check credentials in MongoDB (user_db)
+        user = self.users_collection.find_one({"username": username})
+
+        # Get login details (IP address, current date/time)
+        ip_address = socket.gethostbyname(socket.gethostname())
+        login_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Log login attempt (in login_db)
+        login_attempt = {
+            "username": username,
+            "ip_address": ip_address,
+            "login_time": login_time,
+            "status": "failed" if user is None or user["password"] != password else "success"
+        }
+        self.login_history_collection.insert_one(login_attempt)
+
+        # Print login details to console
+        print(f"Login Attempt Details:\nUsername: {username}\nIP Address: {ip_address}\nLogin Time: {login_time}\nStatus: {login_attempt['status']}\n")
+
+        # Check if user exists and password matches
+        if user is None:
+            messagebox.showerror("Login Error", "Username not found!")
+        elif user["password"] != password:
+            messagebox.showerror("Login Error", "Incorrect password!")
         else:
-            messagebox.showerror("Login Status", "Incorrect password.")
-    else:
-        messagebox.showerror("Login Status", "Username not found.")
+            messagebox.showinfo("Login Successful", f"Welcome, {username}!")
+            print(f"Login successful!\nUsername: {username}\nPassword: {password}")
 
-# Step 6: Create the main window
-window = tk.Tk()
-window.title("Login")
-window.geometry("400x300")  # Window size (width x height)
-window.config(bg="#2c3e50")  # Set background color
-
-# Step 7: Create a frame for a cleaner layout
-frame = tk.Frame(window, bg="#34495e", padx=20, pady=20)
-frame.pack(padx=40, pady=40)
-
-# Step 8: Add labels and entry fields with custom fonts and colors
-label_username = tk.Label(frame, text="Username", font=("Arial", 14), fg="white", bg="#34495e")
-label_username.grid(row=0, column=0, pady=10, sticky="w")
-
-entry_username = tk.Entry(frame, font=("Arial", 14), width=20)
-entry_username.grid(row=0, column=1, pady=10)
-
-label_password = tk.Label(frame, text="Password", font=("Arial", 14), fg="white", bg="#34495e")
-label_password.grid(row=1, column=0, pady=10, sticky="w")
-
-entry_password = tk.Entry(frame, font=("Arial", 14), show="*", width=20)
-entry_password.grid(row=1, column=1, pady=10)
-
-# Step 9: Create a login button with custom style
-login_button = tk.Button(frame, text="Login", font=("Arial", 14), bg="#2980b9", fg="white", command=login, width=15)
-login_button.grid(row=2, columnspan=2, pady=20)
-
-# Step 10: Create a sign-up link (if necessary) for user registration
-signup_label = tk.Label(frame, text="Don't have an account? Sign Up", font=("Arial", 10), fg="#ecf0f1", bg="#34495e", cursor="hand2")
-signup_label.grid(row=3, columnspan=2)
-signup_label.bind("<Button-1>", lambda e: messagebox.showinfo("Sign Up", "Sign up functionality here."))
-
-# Step 11: Start the Tkinter event loop
-window.mainloop()
+# Run Application
+root = Tk()
+Login(root)
+root.mainloop()
