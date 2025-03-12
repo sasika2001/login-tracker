@@ -1,72 +1,65 @@
-from tkinter import *
+import tkinter as tk
 from tkinter import messagebox
-import pymongo
+import bcrypt
+from pymongo import MongoClient
 
-class Login:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Login Window")
-        self.root.geometry("400x300")
-        
-        # MongoDB Setup
-        self.client = pymongo.MongoClient("mongodb://localhost:27017/")  # Connect to local MongoDB server
-        self.db = self.client["user_db"]  # Create/select the database
-        self.users_collection = self.db["users"]  # Create/select the collection for user data
-        
-        self.create_widgets()
-    
-    def create_widgets(self):
-        # Username Label and Entry
-        self.username_label = Label(self.root, text="Username")
-        self.username_label.pack(pady=10)
-        
-        self.username_entry = Entry(self.root)
-        self.username_entry.pack(pady=10)
-        
-        # Password Label and Entry
-        self.password_label = Label(self.root, text="Password")
-        self.password_label.pack(pady=10)
-        
-        self.password_entry = Entry(self.root, show="*")  # 'show' hides the password input
-        self.password_entry.pack(pady=10)
-        
-        # Login Button
-        self.login_button = Button(self.root, text="Login", command=self.login_action)
-        self.login_button.pack(pady=20)
-    
-    def login_action(self):
-        # Get the username and password values
-        username = self.username_entry.get()
-        password = self.password_entry.get()
+# Step 1: Connect to MongoDB
+client = MongoClient("mongodb://127.0.0.1:27017/")  # Connect to your local MongoDB server
+db = client["myDatabase"]  # Select the database
+collection = db["myCollection"]  # Select the collection
 
-        # Check if the username or password is empty
-        if not username or not password:
-            messagebox.showerror("Input Error", "Please fill in both fields!")
-            return
-        
-        # Check if the entered username and password match the stored values in MongoDB
-        user = self.users_collection.find_one({"username": username})
-        
-        if user is None:
-            messagebox.showerror("Login Error", "Username not found!")
-        elif user["password"] != password:
-            messagebox.showerror("Login Error", "Incorrect password!")
+# Step 2: Define the function to handle login
+def login():
+    # Get entered username and password from the GUI input fields
+    entered_username = entry_username.get()
+    entered_password = entry_password.get()
+
+    # Step 3: Fetch the stored user data from MongoDB
+    user_data = collection.find_one({"username": entered_username})
+
+    if user_data:
+        # Step 4: Get the stored hashed password from MongoDB
+        stored_hashed_password = user_data["password"]
+
+        # Step 5: Check if the entered password matches the stored hashed password
+        if bcrypt.checkpw(entered_password.encode('utf-8'), stored_hashed_password):
+            messagebox.showinfo("Login Status", "Login successful!")
         else:
-            print(f"Login successful!\nUsername: {username}\nPassword: {password}")
-            # Proceed with the next steps (e.g., opening a new window)
+            messagebox.showerror("Login Status", "Incorrect password.")
+    else:
+        messagebox.showerror("Login Status", "Username not found.")
 
-    def create_test_user(self):
-        # Create a test user (only run this once to create the user in the database)
-        self.users_collection.insert_one({
-            "username": "admin",
-            "password": "password123"
-        })
-        print("Test user created in the database.")
+# Step 6: Create the main window
+window = tk.Tk()
+window.title("Login")
+window.geometry("400x300")  # Window size (width x height)
+window.config(bg="#2c3e50")  # Set background color
 
-root = Tk()
-obj = Login(root)
+# Step 7: Create a frame for a cleaner layout
+frame = tk.Frame(window, bg="#34495e", padx=20, pady=20)
+frame.pack(padx=40, pady=40)
 
-# To create a test user (only once), uncomment the following line
-# obj.create_test_user()
+# Step 8: Add labels and entry fields with custom fonts and colors
+label_username = tk.Label(frame, text="Username", font=("Arial", 14), fg="white", bg="#34495e")
+label_username.grid(row=0, column=0, pady=10, sticky="w")
 
-root.mainloop()
+entry_username = tk.Entry(frame, font=("Arial", 14), width=20)
+entry_username.grid(row=0, column=1, pady=10)
+
+label_password = tk.Label(frame, text="Password", font=("Arial", 14), fg="white", bg="#34495e")
+label_password.grid(row=1, column=0, pady=10, sticky="w")
+
+entry_password = tk.Entry(frame, font=("Arial", 14), show="*", width=20)
+entry_password.grid(row=1, column=1, pady=10)
+
+# Step 9: Create a login button with custom style
+login_button = tk.Button(frame, text="Login", font=("Arial", 14), bg="#2980b9", fg="white", command=login, width=15)
+login_button.grid(row=2, columnspan=2, pady=20)
+
+# Step 10: Create a sign-up link (if necessary) for user registration
+signup_label = tk.Label(frame, text="Don't have an account? Sign Up", font=("Arial", 10), fg="#ecf0f1", bg="#34495e", cursor="hand2")
+signup_label.grid(row=3, columnspan=2)
+signup_label.bind("<Button-1>", lambda e: messagebox.showinfo("Sign Up", "Sign up functionality here."))
+
+# Step 11: Start the Tkinter event loop
+window.mainloop()
