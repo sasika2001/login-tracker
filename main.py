@@ -84,11 +84,15 @@ class Login:
         # Check if user exists and password matches
         if user is None:
             messagebox.showerror("Login Error", "Username not found!")
+            self.username_entry.delete(0, END)
+            self.password_entry.delete(0, END)
         elif user["password"] != password:
             messagebox.showerror("Login Error", "Incorrect password!")
+            self.password_entry.delete(0, END)
         else:
             messagebox.showinfo("Login Successful", f"Welcome, {username}!")
             print(f"Login successful!\nUsername: {username}\nPassword: {password}")
+            self.root.destroy()  # Close the GUI after login
 
 # Run Application
 root = Tk()
